@@ -16,7 +16,8 @@ use std::fmt;
 use std::io;
 use std::sync::Once;
 
-use {Protocol, TlsAcceptorBuilder, TlsConnectorBuilder};
+
+use {Protocol, TlsAcceptorBuilder, TlsConnectorBuilder, TlsClientCertificateVerification};
 
 #[cfg(have_min_max_version)]
 fn supported_protocols(
@@ -365,6 +366,20 @@ impl TlsAcceptor {
         let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
         acceptor.set_private_key(&builder.identity.0.pkey)?;
         acceptor.set_certificate(&builder.identity.0.cert)?;
+
+        if let Some(client_ca_cert) = &builder.client_cert_verification_ca_cert {
+            if builder.client_cert_verification_trust {
+                acceptor.cert_store_mut().add_cert((client_ca_cert.0).0.to_owned())?;
+            }
+            acceptor.add_client_ca((client_ca_cert.0).0.as_ref())?;
+        }
+        let verify_mode = match &builder.client_cert_verification {
+            TlsClientCertificateVerification::DoNotRequestCertificate => SslVerifyMode::NONE,
+            TlsClientCertificateVerification::RequestCertificate => SslVerifyMode::PEER,
+            TlsClientCertificateVerification::RequireCertificate => SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT,
+        };
+        acceptor.set_verify(verify_mode);
+        
         for cert in builder.identity.0.chain.iter() {
             // https://www.openssl.org/docs/manmaster/man3/SSL_CTX_add_extra_chain_cert.html
             // specifies that "When sending a certificate chain, extra chain certificates are

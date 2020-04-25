@@ -159,7 +159,7 @@ fn certificate_from_pem() {
 }
 
 #[test]
-fn peer_certificate() {
+fn no_peer_certificate() {
     let keys = test_cert_gen::keys();
 
     let identity = p!(Identity::from_pkcs12(
@@ -193,6 +193,81 @@ fn peer_certificate() {
 
     p!(j.join());
 }
+
+#[test]
+fn require_peer_certificate_no_cert() {
+    let keys = test_cert_gen::keys();
+    let identity = p!(Identity::from_pkcs12(
+        &keys.server.cert_and_key_pkcs12.pkcs12.0,
+        &keys.server.cert_and_key_pkcs12.password
+    ));
+    let builder = p!(TlsAcceptor::builder(identity)
+        .client_cert_verification(TlsClientCertificateVerification::RequireCertificate)
+        .build());
+
+    let listener = p!(TcpListener::bind("0.0.0.0:0"));
+    let port = p!(listener.local_addr()).port();
+
+    let j = thread::spawn(move || {
+        let socket = p!(listener.accept()).0;
+        let socket = builder.accept(socket);
+        assert!(socket.is_err());
+    });
+
+    let root_ca = Certificate::from_der(keys.client.ca.get_der()).unwrap();
+
+    let socket = p!(TcpStream::connect(("localhost", port)));
+    let builder = p!(TlsConnector::builder()
+        .add_root_certificate(root_ca)
+        .build());
+    let socket = builder.connect("foobar.com", socket);
+    assert!(socket.is_err());
+
+    p!(j.join());
+}
+
+// TODO fix this test
+// Right now, test_cert_gen does not generate client certificates.
+// Once it will, we will turn the test back on
+// #[test]
+// fn request_peer_certificate_some_cert() {
+//     let keys = test_cert_gen::keys();
+//     let identity = p!(Identity::from_pkcs12(
+//         &keys.server.cert_and_key_pkcs12.pkcs12.0,
+//         &keys.server.cert_and_key_pkcs12.password
+//     ));
+//     let root_ca = keys.client.ca.get_der();
+//     let root_ca = Certificate::from_der(root_ca).unwrap();
+//     let builder = p!(TlsAcceptor::builder(identity.clone())
+//         .client_cert_verification(TlsClientCertificateVerification::RequestCertificate)
+//         .client_cert_verification_ca_cert(Some(root_ca.clone()))
+//         .trust_client_ca_cert(true)
+//         .build());
+
+//     let listener = p!(TcpListener::bind("localhost:0"));
+//     let port = p!(listener.local_addr()).port();
+
+//     let cert_der = keys.client.ca.get_der();
+//     let j = thread::spawn(move || {
+//         let socket = p!(listener.accept()).0;
+//         let socket = p!(builder.accept(socket));
+//         let cert = socket.peer_certificate().unwrap().unwrap();
+//         assert_eq!(cert.to_der().unwrap(), &cert_der[..]);
+//     });
+
+//     let Identity = p!(Identity::from_pkcs12(&keys.client., password))
+//     let socket = p!(TcpStream::connect(("localhost", port)));
+//     let builder = p!(TlsConnector::builder()
+//         .add_root_certificate(root_ca)
+//         .identity(identity)
+//         .build());
+//     let socket = p!(builder.connect("localhost", socket));
+
+//     let cert = socket.peer_certificate().unwrap().unwrap();
+//     assert_eq!(cert.to_der().unwrap(), &cert_der[..]);
+
+//     p!(j.join());
+// }
 
 #[test]
 fn server_tls11_only() {

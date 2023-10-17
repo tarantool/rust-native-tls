@@ -373,6 +373,15 @@ impl TlsAcceptor {
             }
             acceptor.add_client_ca((client_ca_cert.0).0.as_ref())?;
         }
+
+        if let Some(ciphers) = &builder.cipher_list {
+            acceptor.set_cipher_list(ciphers).unwrap();
+        }
+
+        if let Some(ciphersuites) = &builder.ciphersuites {
+            acceptor.set_ciphersuites(ciphersuites).unwrap();
+        }
+
         let verify_mode = match &builder.client_cert_verification {
             TlsClientCertificateVerification::DoNotRequestCertificate => SslVerifyMode::NONE,
             TlsClientCertificateVerification::RequestCertificate => SslVerifyMode::PEER,

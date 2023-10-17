@@ -531,7 +531,9 @@ pub struct TlsAcceptorBuilder {
     max_protocol: Option<Protocol>,
     client_cert_verification: TlsClientCertificateVerification,
     client_cert_verification_ca_cert: Option<Certificate>,
-    client_cert_verification_trust: bool
+    client_cert_verification_trust: bool,
+    cipher_list: Option<String>,
+    ciphersuites: Option<String>
 }
 
 impl TlsAcceptorBuilder {
@@ -581,6 +583,28 @@ impl TlsAcceptorBuilder {
     /// Defaults `false`
     pub fn trust_client_ca_cert(&mut self, should_trust: bool) -> &mut TlsAcceptorBuilder {
         self.client_cert_verification_trust = should_trust;
+        self
+    }
+
+    /// Specify list of ciphers used for TLS versions less than 1.3
+    ///
+    /// This specifies the cipher list that should be used on all TLS
+    /// versions prior to 1.3
+    ///
+    /// Refer to OpenSSL documentation or your local config for defaults.
+    pub fn set_ciphers(&mut self, cipher_list: &str) -> &mut TlsAcceptorBuilder {
+        self.cipher_list = Some(cipher_list.to_string());
+        self
+    }
+
+    /// Specify ciphersuites used for TLS 1.3
+    ///
+    /// This specifies the set of ciphersuites that should be used on 
+    /// TLS 1.3
+    ///
+    /// Refer to OpenSSL documentation or your local config for defaults.
+    pub fn set_ciphersuites(&mut self, ciphersuites: &str) -> &mut TlsAcceptorBuilder {
+        self.ciphersuites = Some(ciphersuites.to_string());
         self
     }
 
@@ -650,7 +674,9 @@ impl TlsAcceptor {
             max_protocol: None,
             client_cert_verification: TlsClientCertificateVerification::DoNotRequestCertificate,
             client_cert_verification_ca_cert: None,
-            client_cert_verification_trust: false
+            client_cert_verification_trust: false,
+            cipher_list: None,
+            ciphersuites: None
         }
     }
 
